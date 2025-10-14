@@ -14,7 +14,6 @@ npm run dev
 npm test
 
 ## 📁 Estructura básica del proyecto
-## 📁 Estructura básica del proyecto
 
 ```bash
 src/
@@ -22,7 +21,6 @@ src/
 ├── server.js              # Punto de entrada del backend
 ├── controllers/           # Lógica de negocio (User / Ticket)
 └── routes/                # Endpoints de la API
-
 tests/
 └── *.test.js              # Pruebas automatizadas con Jest
 
