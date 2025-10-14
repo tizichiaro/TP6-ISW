@@ -1,0 +1,8 @@
+# Ignorar node_modules dentro de la subcarpeta
+mi-backend-js-main/node_modules/
+
+# Ignorar archivos .env dentro de la subcarpeta
+mi-backend-js-main/.env
+
+# Ignorar coverage dentro de la subcarpeta
+mi-backend-js-main/coverage/

@@ -1,0 +1,7 @@
+npm init -y
+
+npm i express dotenv
+
+npm i -D jest supertest nodemon cross-env
+
+npm i 
