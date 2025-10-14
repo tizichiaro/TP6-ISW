@@ -3,27 +3,6 @@ import app from '../src/app.js';
 
 describe('Ticket API (Compra de entradas)', () => {
 
-  describe('Casos válidos', () => {
-    test('Compra correcta con datos válidos', async () => {
-      const payload = {
-        fechaVisita: new Date(Date.now() + 86400000).toISOString(), // mañana
-        cantidad: 3,
-        visitantes: [
-          { edad: 25 },
-          { edad: 30 },
-          { edad: 5 }
-        ],
-        tipoPase: 'regular',
-        pago: 'mercado_pago',
-        userId: 1
-      };
-
-      const res = await request(app).post('/api/tickets').send(payload);
-      expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProperty('id');
-    });
-  });
-
   describe('Casos inválidos', () => {
     test('Falla si no se selecciona forma de pago', async () => {
       const payload = {
@@ -66,6 +45,27 @@ describe('Ticket API (Compra de entradas)', () => {
       const res = await request(app).post('/api/tickets').send(payload);
       expect(res.statusCode).toBe(400);
       expect(res.body.message).toMatch(/10/i);
+    });
+  });
+
+  describe('Casos válidos', () => {
+    test('Compra correcta con datos válidos', async () => {
+      const payload = {
+        fechaVisita: new Date(Date.now() + 86400000).toISOString(), // mañana
+        cantidad: 3,
+        visitantes: [
+          { edad: 25 },
+          { edad: 30 },
+          { edad: 5 }
+        ],
+        tipoPase: 'regular',
+        pago: 'mercado_pago',
+        userId: 1
+      };
+
+      const res = await request(app).post('/api/tickets').send(payload);
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toHaveProperty('id');
     });
   });
 });
