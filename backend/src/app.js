@@ -11,10 +11,10 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
-// Servir frontend estático (carpeta frontend dentro del proyecto backend)
+// Servir frontend estático (carpeta frontend en la raíz del proyecto)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../../frontend')));
 
 
 // Rutas

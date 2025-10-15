@@ -13,12 +13,12 @@ Archivos:
 Cómo probar:
 1. Arrancar el backend desde `backend/`:
 
-```powershell
+n```powershell
 cd backend; npm install; node src/server.js
 ```
 
 2. Abrir `frontend/index.html` en el navegador (doble click) o servirlo con un servidor estático.
-3. Usar el botón "Iniciar sesión (simulado)" para seleccionar un usuario y luego completar el formulario.
+3. Ir a http://localhost:3000/ (recomendado) o a /login.html para iniciar sesión.
 
 Notas:
 - La redirección a Mercado Pago está simulada abriendo la página de Mercado Pago.
