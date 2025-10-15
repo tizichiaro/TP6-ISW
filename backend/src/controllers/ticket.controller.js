@@ -1,3 +1,6 @@
+import { getUserById } from './user.controller.js';
+import { sendTicketConfirmation } from '../utils/mailer.js';
+
 const tickets = [];
 let nextId = 1;
 
@@ -7,7 +10,7 @@ const parqueAbierto = (fecha) => {
   return dia !== 2;
 };
 
-export const crearTicket = (req, res) => {
+export const crearTicket = async (req, res) => {
   const { fechaVisita, cantidad, visitantes, tipoPase, pago, userId } = req.body;
 
   // Autenticación: el middleware `requireAuth` dejó el id en req.authUserId
@@ -47,8 +50,22 @@ export const crearTicket = (req, res) => {
     userId
   };
   tickets.push(ticket);
+  // Intentar enviar correo de confirmación al email del usuario (si existe)
+  const user = getUserById(userId);
+  if (user && user.email) {
+    console.log(`📧 Enviando mail de confirmación al usuario ${userId} <${user.email}>...`);
+    // No bloqueamos la respuesta por una posible falla en el envío; igualmente
+    // esperamos la promesa para poder loggear si hubo éxito o error.
+    try {
+      await sendTicketConfirmation(ticket, user.email);
+      console.log(`✅ Email de confirmación enviado a ${user.email}`);
+    } catch (err) {
+      console.error('❌ Error enviando email de confirmación:', err.message || err);
+    }
+  } else {
+    console.log(`⚠️ Usuario ${userId} sin email conocido — no se envió confirmación por mail.`);
+  }
 
-  console.log(`📧 Enviando mail de confirmación al usuario ${userId}...`);
   res.status(201).json(ticket);
 };
 

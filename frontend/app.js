@@ -116,7 +116,7 @@ form.addEventListener('submit', async (e) => {
 
     if (!res.ok) {
       let errMsg = 'Error en la compra';
-      try { const j = await res.json(); if (j && j.message) errMsg = j.message; } catch(_){ }
+      try { const j = await res.json(); if (j && j.message) errMsg = j.message; } catch (_) { }
       throw new Error(errMsg);
     }
     const body = await res.json();
@@ -132,18 +132,18 @@ form.addEventListener('submit', async (e) => {
     }
 
     // refrescar lista
-    
+
   } catch (err) {
     showAlert(err.message || String(err));
   }
 });
 
 // Inicialización
-(async function init(){
+(async function init() {
   // fecha por defecto: mañana
   const manana = new Date();
   manana.setDate(manana.getDate() + 1);
-  fechaInput.value = manana.toISOString().slice(0,10);
+  fechaInput.value = manana.toISOString().slice(0, 10);
   syncVisitors();
   // si existe cookie con token, recuperar usuario (no tenemos endpoint me, así asumimos token mock-token-<id>)
   const cookieMatch = document.cookie.match(/(?:^|; )token=([^;]+)/);
@@ -167,12 +167,10 @@ form.addEventListener('submit', async (e) => {
       }
     }
   } else {
-    // si la página requiere auth, redirigir a login
-    const requiresAuth = true; // esta app asume que index.html requiere autenticación
-    if (requiresAuth) {
-      const next = location.pathname + location.search;
-      window.location.href = `/login.html?next=${encodeURIComponent(next)}`;
-      return;
-    }
+
+    const next = location.pathname + location.search;
+    window.location.href = `/login.html?next=${encodeURIComponent(next)}`;
+    return;
+
   }
 })();
