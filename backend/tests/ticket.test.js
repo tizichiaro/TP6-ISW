@@ -2,6 +2,13 @@ import request from 'supertest';
 import app from '../src/app.js';
 
 describe('Ticket API (Compra de entradas)', () => {
+  let token = null;
+
+  beforeAll(async () => {
+    const authRes = await request(app).post('/api/auth/login').send({ email: 'ada@example.com', password: 'secret' });
+    expect(authRes.statusCode).toBe(200);
+    token = authRes.body.token;
+  });
 
   describe('Casos inválidos', () => {
     test('Falla si no se selecciona forma de pago', async () => {
@@ -10,7 +17,7 @@ describe('Ticket API (Compra de entradas)', () => {
         cantidad: 2,
         userId: 1
       };
-      const res = await request(app).post('/api/tickets').send(payload);
+      const res = await request(app).post('/api/tickets').set('Authorization', `Bearer ${token}`).send(payload);
       expect(res.statusCode).toBe(400);
       expect(res.body.message).toMatch(/Faltan/i);
     });
@@ -30,7 +37,7 @@ describe('Ticket API (Compra de entradas)', () => {
         pago: 'efectivo',
         userId: 1
       };
-      const res = await request(app).post('/api/tickets').send(payload);
+      const res = await request(app).post('/api/tickets').set('Authorization', `Bearer ${token}`).send(payload);
       expect(res.statusCode).toBe(400);
       expect(res.body.message).toMatch(/cerrado/i);
     });
@@ -42,7 +49,7 @@ describe('Ticket API (Compra de entradas)', () => {
         pago: 'efectivo',
         userId: 1
       };
-      const res = await request(app).post('/api/tickets').send(payload);
+      const res = await request(app).post('/api/tickets').set('Authorization', `Bearer ${token}`).send(payload);
       expect(res.statusCode).toBe(400);
       expect(res.body.message).toMatch(/10/i);
     });
@@ -63,7 +70,7 @@ describe('Ticket API (Compra de entradas)', () => {
         userId: 1
       };
 
-      const res = await request(app).post('/api/tickets').send(payload);
+      const res = await request(app).post('/api/tickets').set('Authorization', `Bearer ${token}`).send(payload);
       expect(res.statusCode).toBe(201);
       expect(res.body).toHaveProperty('id');
     });

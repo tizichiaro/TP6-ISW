@@ -10,6 +10,10 @@ const parqueAbierto = (fecha) => {
 export const crearTicket = (req, res) => {
   const { fechaVisita, cantidad, visitantes, tipoPase, pago, userId } = req.body;
 
+  // Autenticación: el middleware `requireAuth` dejó el id en req.authUserId
+  const tokenUserId = req.authUserId;
+  if (tokenUserId !== userId) return res.status(403).json({ message: 'Token inválido para el userId provisto' });
+
   // Validaciones
   if (!fechaVisita || !cantidad || !pago || !userId) {
     return res.status(400).json({ message: 'Faltan datos obligatorios' });
