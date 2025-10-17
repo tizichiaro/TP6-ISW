@@ -21,9 +21,9 @@ const fetchUsers = async () => {
   return res.json();
 };
 
-// Note: tickets list removed from frontend to avoid showing tickets of all users
-
-// Manejo del formulario
+// =====================================================
+// 🧾 Elementos del formulario
+// =====================================================
 const form = byId('buy-form');
 const fechaInput = byId('fecha');
 const cantidadInput = byId('cantidad');
@@ -34,6 +34,9 @@ const pagoSelect = byId('pago');
 const btnLogout = byId('btn-logout');
 const userBadge = byId('user-badge');
 
+// =====================================================
+// 👥 Sincronización de visitantes
+// =====================================================
 const syncVisitors = () => {
   visitantesList.innerHTML = '';
   const cantidad = Number(cantidadInput.value) || 1;
@@ -48,31 +51,44 @@ const syncVisitors = () => {
   }
 };
 
+// =====================================================
+// 🎟️ Eventos del formulario
+// =====================================================
+
+// 🔹 Detectar cambio en cantidad (sin forzar máximo)
 cantidadInput.addEventListener('change', () => {
-  const v = Number(cantidadInput.value);
-  if (v > 10) {
-    cantidadInput.value = 10;
-  }
   syncVisitors();
 });
 
+// 🔹 Agregar visitante manualmente
 addVisitorBtn.addEventListener('click', () => {
   cantidadInput.value = Number(cantidadInput.value) + 1;
   syncVisitors();
 });
 
+// 🔹 Bloquear lunes en el calendario
+fechaInput.addEventListener('change', () => {
+  const fecha = new Date(fechaInput.value);
+  if (fecha.getDay() === 1) { // 1 = lunes
+    showAlert('El parque está cerrado los lunes. Seleccioná otro día.', 'warning');
+    fechaInput.value = ''; // limpiar selección
+  }
+});
+
+// 🔹 Logout
 btnLogout.addEventListener('click', () => {
-  // borrar cookie
   document.cookie = 'token=; path=/; max-age=0';
   token = null;
   currentUser = null;
   userBadge.classList.add('d-none');
   userBadge.textContent = '';
   btnLogout.classList.add('d-none');
-  // redirigir al login
   window.location.href = '/login.html';
 });
 
+// =====================================================
+// 🧾 Envío del formulario
+// =====================================================
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   alertArea.innerHTML = '';
@@ -93,7 +109,6 @@ form.addEventListener('submit', async (e) => {
     userId: currentUser.id
   };
 
-  // Validación local mínima
   if (!payload.pago) {
     showAlert('Seleccione una forma de pago', 'danger');
     return;
@@ -101,13 +116,14 @@ form.addEventListener('submit', async (e) => {
 
   try {
     const headers = { 'Content-Type': 'application/json' };
-    // intentar usar token en memoria
+
+    // intentar usar token en memoria o cookie
     if (token) headers['Authorization'] = `Bearer ${token}`;
     else {
-      // intentar leer cookie
       const cookieMatch = document.cookie.match(/(?:^|; )token=([^;]+)/);
       if (cookieMatch) headers['Authorization'] = `Bearer ${decodeURIComponent(cookieMatch[1])}`;
     }
+
     const res = await fetch(`${API_BASE}/tickets`, {
       method: 'POST',
       headers,
@@ -116,12 +132,13 @@ form.addEventListener('submit', async (e) => {
 
     if (!res.ok) {
       let errMsg = 'Error en la compra';
-      try { const j = await res.json(); if (j && j.message) errMsg = j.message; } catch (_) { }
+      try { const j = await res.json(); if (j && j.message) errMsg = j.message; } catch (_) {}
       throw new Error(errMsg);
     }
+
     const body = await res.json();
 
-    // Si pago es mercado_pago simulamos redirección
+    // 💳 Simulación Mercado Pago
     if (payload.pago === 'mercado_pago') {
       showAlert('Redirigiendo a Mercado Pago (simulado)...', 'info');
       setTimeout(() => {
@@ -131,28 +148,27 @@ form.addEventListener('submit', async (e) => {
       showAlert(`Compra realizada: ${body.cantidad} entradas para ${new Date(body.fechaVisita).toLocaleDateString()}`, 'success');
     }
 
-    // refrescar lista
-
   } catch (err) {
     showAlert(err.message || String(err));
   }
 });
 
-// Inicialización
+// =====================================================
+// 🚀 Inicialización automática
+// =====================================================
 (async function init() {
-  // fecha por defecto: mañana
+  // Fecha por defecto: mañana
   const manana = new Date();
   manana.setDate(manana.getDate() + 1);
   fechaInput.value = manana.toISOString().slice(0, 10);
   syncVisitors();
-  // si existe cookie con token, recuperar usuario (no tenemos endpoint me, así asumimos token mock-token-<id>)
+
+  // Recuperar sesión desde cookie si existe
   const cookieMatch = document.cookie.match(/(?:^|; )token=([^;]+)/);
   if (cookieMatch) {
     token = decodeURIComponent(cookieMatch[1]);
-    // intentar inferir user del token
     const m = token.match(/^mock-token-(\d+)$/);
     if (m) {
-      // obtener usuarios para encontrar el name
       try {
         const users = await fetchUsers();
         const u = users.find(x => x.id === Number(m[1]));
@@ -163,14 +179,12 @@ form.addEventListener('submit', async (e) => {
           btnLogout.classList.remove('d-none');
         }
       } catch (err) {
-        // ignore
+        // ignorar
       }
     }
   } else {
-
     const next = location.pathname + location.search;
     window.location.href = `/login.html?next=${encodeURIComponent(next)}`;
     return;
-
   }
 })();
