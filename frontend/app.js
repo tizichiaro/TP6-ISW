@@ -157,10 +157,16 @@ form.addEventListener('submit', async (e) => {
 // 🚀 Inicialización automática
 // =====================================================
 (async function init() {
-  // Fecha por defecto: mañana
   const manana = new Date();
   manana.setDate(manana.getDate() + 1);
-  fechaInput.value = manana.toISOString().slice(0, 10);
+  $('#fecha').datepicker({
+    format: 'yyyy-mm-dd',
+    language: 'es',
+    todayHighlight: true,
+    autoclose: true,
+    startDate: new Date(), // desde hoy
+    daysOfWeekDisabled: [1], // 🚫 lunes bloqueados
+  });
   syncVisitors();
 
   // Recuperar sesión desde cookie si existe
