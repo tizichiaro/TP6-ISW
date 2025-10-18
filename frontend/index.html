@@ -5,13 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Compra de Entradas - Parque</title>
 
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Bootstrap Datepicker -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.10.0/css/bootstrap-datepicker.min.css" rel="stylesheet">
-
-  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
@@ -42,18 +37,10 @@
                 <input type="number" id="cantidad" class="form-control" min="1" value="1" required>
               </div>
 
+              <!-- Visitantes -->
               <div id="visitantes-container" class="mb-3">
-                <label class="form-label">Edades de los visitantes</label>
+                <label class="form-label">Datos de los visitantes</label>
                 <div id="visitantes-list"></div>
-                <button id="add-visitor" type="button" class="btn btn-sm btn-outline-secondary mt-2">Añadir visitante</button>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Tipo de pase</label>
-                <select id="tipoPase" class="form-select">
-                  <option value="regular">Regular</option>
-                  <option value="vip">VIP</option>
-                </select>
               </div>
 
               <div class="mb-3">
@@ -65,7 +52,7 @@
                 </select>
               </div>
 
-              <div class="d-grid gap-2">
+              <div class="d-grid">
                 <button class="btn btn-primary" type="submit">Confirmar compra</button>
               </div>
             </form>
@@ -77,11 +64,26 @@
     </div>
   </main>
 
+  <!-- Modal -->
+  <div class="modal fade" id="ticketModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-success">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title" id="ticket-modal-title">✅ Compra registrada correctamente</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body text-center" id="ticket-modal-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-success" data-bs-dismiss="modal">Volver</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.10.0/js/bootstrap-datepicker.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.10.0/locales/bootstrap-datepicker.es.min.js"></script>
-
   <script src="app.js"></script>
 </body>
 </html>
