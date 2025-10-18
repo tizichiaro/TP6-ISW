@@ -1,15 +1,40 @@
 import { getUserById } from './user.controller.js';
 import { sendTicketConfirmation } from '../utils/mailer.js';
 import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
 
-const tickets = [];
-let nextId = 1;
+const DATA_FILE = path.resolve('./data/tickets.json');
+const LIMITE_ENTRADAS_POR_DIA = 15;
 
-// 🏞️ Parque cerrado los martes
+// 🏞️ Parque cerrado martes y miércoles
 const parqueAbierto = (fecha) => {
-  const dia = new Date(fecha).getDay(); // 0=Dom, 1=Lun, 2=Mar...
-  return dia !== 1 && dia !== 2;
+  const dia = new Date(fecha).getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie...
+  return dia !== 2 && dia !== 3;
 };
+
+// 📂 Cargar tickets existentes (si el archivo existe)
+let tickets = [];
+try {
+  if (fs.existsSync(DATA_FILE)) {
+    tickets = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    console.log(`📂 Tickets cargados: ${tickets.length}`);
+  }
+} catch (err) {
+  console.error('❌ Error leyendo archivo de tickets:', err);
+  tickets = [];
+}
+
+// 💾 Guardar tickets en archivo
+const guardarTickets = () => {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(tickets, null, 2), 'utf8');
+  } catch (err) {
+    console.error('❌ Error guardando archivo de tickets:', err);
+  }
+};
+
+let nextId = tickets.length ? Math.max(...tickets.map(t => t.id)) + 1 : 1;
 
 export const crearTicket = async (req, res) => {
   try {
@@ -24,7 +49,6 @@ export const crearTicket = async (req, res) => {
     // ======================
     // 🔍 VALIDACIONES
     // ======================
-
     if (!pago) return res.status(400).json({ message: 'Debe seleccionar una forma de pago' });
     if (!fechaVisita || !userId) return res.status(400).json({ message: 'Faltan datos obligatorios' });
 
@@ -42,7 +66,6 @@ export const crearTicket = async (req, res) => {
     if (!['efectivo', 'mercado_pago'].includes(pago))
       return res.status(400).json({ message: 'Forma de pago inválida' });
 
-    // validar visitantes
     if (!Array.isArray(visitantes) || visitantes.length !== cantidad)
       return res.status(400).json({ message: 'Cantidad de visitantes no coincide con el número de entradas' });
 
@@ -54,22 +77,49 @@ export const crearTicket = async (req, res) => {
     }
 
     // ======================
-    // 🎟️ CREACIÓN SIMULADA
+    // 🧮 CONTROL DE CAPACIDAD DIARIA (ROBUSTO CON ZONA HORARIA)
     // ======================
+    const fechaClave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 
+    // Sumar cantidad total de entradas vendidas ese día
+    const entradasVendidasEseDia = tickets
+      .filter(t => {
+        const f = new Date(t.fechaVisita);
+        const claveTicket = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+        return claveTicket === fechaClave;
+      })
+      .reduce((sum, t) => sum + t.cantidad, 0);
+
+    console.log(`🧮 Entradas vendidas el ${fechaClave}: ${entradasVendidasEseDia}`);
+
+    if (entradasVendidasEseDia >= LIMITE_ENTRADAS_POR_DIA) {
+      return res.status(400).json({
+        message: `El cupo para el ${fechaClave} ya está completo (${LIMITE_ENTRADAS_POR_DIA} entradas).`,
+      });
+    }
+
+    if (entradasVendidasEseDia + cantidad > LIMITE_ENTRADAS_POR_DIA) {
+      const disponibles = LIMITE_ENTRADAS_POR_DIA - entradasVendidasEseDia;
+      return res.status(400).json({
+        message: `Solo quedan ${disponibles} entradas disponibles para el ${fechaClave}.`,
+      });
+    }
+
+    // ======================
+    // 🎟️ CREAR Y GUARDAR TICKET
+    // ======================
     const ticket = {
       id: nextId++,
       fechaVisita,
       cantidad,
       visitantes,
       pago,
-      userId
+      userId,
     };
 
     if (pago === 'mercado_pago')
       ticket.checkoutUrl = 'https://fake.mercadopago.checkout/simulacion';
 
-    // 📧 Simulación de envío de correo
     const user = getUserById(userId);
     ticket.emailSent = false;
     if (user && user.email) {
@@ -81,17 +131,18 @@ export const crearTicket = async (req, res) => {
       }
     }
 
-    // 🧾 Crear QR con la info del ticket completo
+    // 🧾 Crear QR con la info del ticket
     const qrData = JSON.stringify({
       id: ticket.id,
       userId: ticket.userId,
       fechaVisita: ticket.fechaVisita,
-      visitantes: ticket.visitantes
+      visitantes: ticket.visitantes,
     });
-
     ticket.qrCode = await QRCode.toDataURL(qrData);
 
     tickets.push(ticket);
+    guardarTickets(); 
+
     res.status(201).json(ticket);
 
   } catch (error) {
