@@ -10,7 +10,7 @@ const LIMITE_ENTRADAS_POR_DIA = 15;
 // 🏞️ Parque cerrado martes y miércoles
 const parqueAbierto = (fecha) => {
   const dia = new Date(fecha).getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie...
-  return dia !== 2 && dia !== 3;
+  return dia !== 0 ;
 };
 
 // 📂 Cargar tickets existentes (si el archivo existe)
@@ -18,7 +18,6 @@ let tickets = [];
 try {
   if (fs.existsSync(DATA_FILE)) {
     tickets = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    console.log(`📂 Tickets cargados: ${tickets.length}`);
   }
 } catch (err) {
   console.error('❌ Error leyendo archivo de tickets:', err);

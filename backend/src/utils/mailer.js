@@ -1,14 +1,13 @@
 import nodemailer from 'nodemailer';
 
-// Utilidad para enviar emails. Lee configuración desde variables de entorno:
-// - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE
-// - MAIL_FROM (dirección desde la que se envían los correos)
-// Si no hay configuración SMTP, la función de envío hará un console.log
-// (modo mock) para que el backend siga funcionando en desarrollo.
-
+// ==========================
+// 📧 CONFIGURACIÓN SMTP
+// ==========================
 let transporter = null;
 
-const hasSmtpConfig = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+const hasSmtpConfig = Boolean(
+  process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
+);
 
 if (hasSmtpConfig) {
   transporter = nodemailer.createTransport({
@@ -21,7 +20,7 @@ if (hasSmtpConfig) {
     }
   });
 } else {
-  // Transportador "mock" que simplemente escribe en consola.
+  // 🚧 Modo mock (para desarrollo sin SMTP)
   transporter = {
     sendMail: async (mail) => {
       console.log('=== Mock email (no SMTP configurado) ===');
@@ -35,50 +34,53 @@ if (hasSmtpConfig) {
   };
 }
 
+// ==========================
+// 📩 FUNCIÓN DE ENVÍO
+// ==========================
 export async function sendTicketConfirmation(ticket, toEmail) {
   if (!toEmail) {
     throw new Error('toEmail es obligatorio para enviar la confirmación');
   }
 
   const from = process.env.MAIL_FROM || 'no-reply@parque.example.com';
-  const subject = `Confirmación de compra - Ticket #${ticket.id}`;
+  const subject = `🎟️ Confirmación de compra - Ticket #${ticket.id}`;
 
-  const textLines = [
+  // 🧍‍♂️ Formatear visitantes
+  let visitantesTexto = 'Sin visitantes registrados';
+  if (Array.isArray(ticket.visitantes) && ticket.visitantes.length > 0) {
+    visitantesTexto = ticket.visitantes
+      .map((v, i) => {
+        const nombre = v.nombre || `Visitante ${i + 1}`;
+        const edad = v.edad !== undefined ? `${v.edad} años` : 'Edad no indicada';
+        const tipoPase = v.tipoPase || 'N/A';
+        return `• ${nombre} - ${edad} - Pase ${tipoPase}`;
+      })
+      .join('\n');
+  }
+
+  // 📄 Texto plano
+  const text = [
     `Gracias por su compra.`,
-    `\nDetalle de la reserva:`,
+    ``,
+    `Detalle de la reserva:`,
     `ID: ${ticket.id}`,
-    `Fecha de visita: ${ticket.fechaVisita}`,
+    `Fecha de visita: ${new Date(ticket.fechaVisita).toLocaleDateString()}`,
     `Cantidad: ${ticket.cantidad}`,
-    `Tipo de pase: ${ticket.tipoPase || 'N/A'}`,
     `Forma de pago: ${ticket.pago}`,
     `User ID: ${ticket.userId}`,
-    `Visitantes: ${Array.isArray(ticket.visitantes) ? ticket.visitantes.join(', ') : ticket.visitantes}`,
-    `\n¡Esperamos verlo pronto!`
-  ];
+    ``,
+    `Visitantes:`,
+    `${visitantesTexto}`,
+    ``,
+    `¡Esperamos verlo pronto!`
+  ].join('\n');
 
-  const text = textLines.join('\n');
-
-  const html = `
-    <p>Gracias por su compra.</p>
-    <h3>Detalle de la reserva</h3>
-    <ul>
-      <li><strong>ID</strong>: ${ticket.id}</li>
-      <li><strong>Fecha de visita</strong>: ${ticket.fechaVisita}</li>
-      <li><strong>Cantidad</strong>: ${ticket.cantidad}</li>
-      <li><strong>Tipo de pase</strong>: ${ticket.tipoPase || 'N/A'}</li>
-      <li><strong>Forma de pago</strong>: ${ticket.pago}</li>
-      <li><strong>User ID</strong>: ${ticket.userId}</li>
-      <li><strong>Visitantes</strong>: ${Array.isArray(ticket.visitantes) ? ticket.visitantes.join(', ') : ticket.visitantes}</li>
-    </ul>
-    <p>¡Esperamos verlo pronto!</p>
-  `;
-
+  // ✉️ Datos del correo
   const mailOptions = {
     from,
     to: toEmail,
     subject,
-    text,
-    html
+    text
   };
 
   return transporter.sendMail(mailOptions);

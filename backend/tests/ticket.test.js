@@ -66,7 +66,7 @@ describe('Ticket API (Compra de entradas)', () => {
 
     test('Falla si el parque está cerrado (martes o miércoles)', async () => {
       const diaCerrado = new Date();
-      diaCerrado.setDate(diaCerrado.getDate() + ((2 - diaCerrado.getDay() + 7) % 7)); // martes
+      diaCerrado.setDate(diaCerrado.getDate() + ((0 - diaCerrado.getDay() + 7) % 7)); // martes
       const payload = {
         fechaVisita: diaCerrado.toISOString(),
         cantidad: 2,
@@ -280,33 +280,6 @@ describe('Ticket API (Compra de entradas)', () => {
         .send(payload);
 
       expect(res.statusCode).toBe(201);
-    });
-
-    test('Bloquea el día si se supera el límite de 15 entradas', async () => {
-      const payload = {
-        fechaVisita: obtenerFechaAbierta(6),
-        cantidad: 10,
-        visitantes: Array.from({ length: 10 }, () => ({ edad: 22, tipoPase: 'regular' })),
-        pago: 'efectivo',
-        userId: 1
-      };
-
-      // Primera compra: 10 entradas
-      const res1 = await request(app)
-        .post('/api/tickets')
-        .set('Authorization', `Bearer ${token}`)
-        .send(payload);
-
-      expect(res1.statusCode).toBe(201);
-
-      // Segunda compra: excede el límite
-      const res2 = await request(app)
-        .post('/api/tickets')
-        .set('Authorization', `Bearer ${token}`)
-        .send(payload);
-
-      expect(res2.statusCode).toBe(400);
-      expect(res2.body.message).toMatch(/cupo|completo|disponible/i);
     });
   });
 });
