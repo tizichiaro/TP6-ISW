@@ -1,4 +1,4 @@
-const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000/api' : '/api'; // fallback para abrir archivo local
+const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000/api' : '/api';
 
 let currentUser = null;
 let token = null;
@@ -15,114 +15,69 @@ const showAlert = (msg, type = 'danger') => {
   `;
 };
 
-const fetchUsers = async () => {
-  const res = await fetch(`${API_BASE}/users`);
-  if (!res.ok) return [];
-  return res.json();
-};
-
 // =====================================================
-// 🧾 Elementos del formulario
+// 👥 Generar visitantes dinámicos
 // =====================================================
-const form = byId('buy-form');
-const fechaInput = byId('fecha');
-const cantidadInput = byId('cantidad');
 const visitantesList = byId('visitantes-list');
-const addVisitorBtn = byId('add-visitor');
-const tipoPaseSelect = byId('tipoPase');
-const pagoSelect = byId('pago');
-const btnLogout = byId('btn-logout');
-const userBadge = byId('user-badge');
+const cantidadInput = byId('cantidad');
 
-// =====================================================
-// 👥 Sincronización de visitantes
-// =====================================================
-const syncVisitors = () => {
+const generarVisitantes = () => {
   visitantesList.innerHTML = '';
   const cantidad = Number(cantidadInput.value) || 1;
+
   for (let i = 0; i < cantidad; i++) {
     const div = document.createElement('div');
-    div.className = 'input-group mb-2';
+    div.className = 'border rounded p-3 mb-2 bg-light';
     div.innerHTML = `
-      <span class="input-group-text">${i + 1}</span>
-      <input type="number" min="0" value="30" class="form-control visitor-age" data-index="${i}" />
+      <h6>Visitante ${i + 1}</h6>
+      <div class="mb-2">
+        <label class="form-label">Edad</label>
+        <input type="number" class="form-control visitor-age" min="0" value="30" required>
+      </div>
+      <div>
+        <label class="form-label">Tipo de pase</label>
+        <select class="form-select visitor-tipo-pase">
+          <option value="regular">Regular</option>
+          <option value="vip">VIP</option>
+        </select>
+      </div>
     `;
     visitantesList.appendChild(div);
   }
 };
 
 // =====================================================
-// 🎟️ Eventos del formulario
-// =====================================================
-
-// 🔹 Detectar cambio en cantidad (sin forzar máximo)
-cantidadInput.addEventListener('change', () => {
-  syncVisitors();
-});
-
-// 🔹 Agregar visitante manualmente
-addVisitorBtn.addEventListener('click', () => {
-  cantidadInput.value = Number(cantidadInput.value) + 1;
-  syncVisitors();
-});
-
-// 🔹 Bloquear lunes en el calendario
-fechaInput.addEventListener('change', () => {
-  const fecha = new Date(fechaInput.value);
-  if (fecha.getDay() === 1) { // 1 = lunes
-    showAlert('El parque está cerrado los lunes. Seleccioná otro día.', 'warning');
-    fechaInput.value = ''; // limpiar selección
-  }
-});
-
-// 🔹 Logout
-btnLogout.addEventListener('click', () => {
-  document.cookie = 'token=; path=/; max-age=0';
-  token = null;
-  currentUser = null;
-  userBadge.classList.add('d-none');
-  userBadge.textContent = '';
-  btnLogout.classList.add('d-none');
-  window.location.href = '/login.html';
-});
-
-// =====================================================
 // 🧾 Envío del formulario
 // =====================================================
+const form = byId('buy-form');
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   alertArea.innerHTML = '';
+
+  const fechaInput = byId('fecha');
+  const pagoSelect = byId('pago');
 
   if (!currentUser) {
     showAlert('Debe iniciar sesión para comprar entradas', 'warning');
     return;
   }
 
-  const visitantes = Array.from(document.querySelectorAll('.visitor-age')).map(i => ({ edad: Number(i.value) }));
+  const visitantes = Array.from(document.querySelectorAll('#visitantes-list > div')).map(div => ({
+    edad: Number(div.querySelector('.visitor-age').value),
+    tipoPase: div.querySelector('.visitor-tipo-pase').value
+  }));
 
   const payload = {
     fechaVisita: new Date(fechaInput.value).toISOString(),
-    cantidad: Number(cantidadInput.value),
+    cantidad: visitantes.length,
     visitantes,
-    tipoPase: tipoPaseSelect.value,
     pago: pagoSelect.value,
     userId: currentUser.id
   };
 
-  if (!payload.pago) {
-    showAlert('Seleccione una forma de pago', 'danger');
-    return;
-  }
-
   try {
     const headers = { 'Content-Type': 'application/json' };
-
-    // intentar usar token en memoria o cookie
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    else {
-      const cookieMatch = document.cookie.match(/(?:^|; )token=([^;]+)/);
-      if (cookieMatch) headers['Authorization'] = `Bearer ${decodeURIComponent(cookieMatch[1])}`;
-    }
 
     const res = await fetch(`${API_BASE}/tickets`, {
       method: 'POST',
@@ -131,66 +86,63 @@ form.addEventListener('submit', async (e) => {
     });
 
     if (!res.ok) {
-      let errMsg = 'Error en la compra';
-      try { const j = await res.json(); if (j && j.message) errMsg = j.message; } catch (_) {}
-      throw new Error(errMsg);
+      let msg = 'Error en la compra';
+      try {
+        const err = await res.json();
+        if (err.message) msg = err.message;
+      } catch {}
+      throw new Error(msg);
     }
 
     const body = await res.json();
+    const visitantesHTML = body.visitantes
+      .map((v, i) => `<li>Visitante ${i + 1}: ${v.edad} años — ${v.tipoPase.toUpperCase()}</li>`)
+      .join('');
 
-    // 💳 Simulación Mercado Pago
+    const modalBodyHTML = `
+      <p><strong>${body.cantidad}</strong> entrada${body.cantidad > 1 ? 's' : ''} para el <strong>${new Date(body.fechaVisita).toLocaleDateString()}</strong></p>
+      <ul class="list-unstyled">${visitantesHTML}</ul>
+      ${body.qrCode ? `<img src="${body.qrCode}" alt="QR" class="img-fluid my-3" style="max-width:200px;">` : ''}
+    `;
+
+    const modalTitle = byId('ticket-modal-title');
+    const modalBody = byId('ticket-modal-body');
+
     if (payload.pago === 'mercado_pago') {
-      showAlert('Redirigiendo a Mercado Pago (simulado)...', 'info');
-      setTimeout(() => {
-        window.location.href = 'https://www.mercadopago.com.ar/';
-      }, 1200);
-    } else {
-      showAlert(`Compra realizada: ${body.cantidad} entradas para ${new Date(body.fechaVisita).toLocaleDateString()}`, 'success');
+      modalTitle.textContent = '✅ Pago aprobado';
+      modalBody.innerHTML = modalBodyHTML + `
+        <p class="text-muted">Tu pago fue procesado exitosamente mediante Mercado Pago.</p>
+      `;
+    } else if (payload.pago === 'efectivo') {
+      modalTitle.textContent = '✅ Compra registrada correctamente';
+      modalBody.innerHTML = modalBodyHTML + `
+        <p class="mt-2 text-muted">💵 Recordá que debés abonar en la <strong>boletería del parque</strong> antes de tu visita.</p>
+      `;
     }
 
+    const modal = new bootstrap.Modal(document.getElementById('ticketModal'));
+    modal.show();
   } catch (err) {
     showAlert(err.message || String(err));
   }
 });
 
 // =====================================================
-// 🚀 Inicialización automática
+// 🚀 Inicialización
 // =====================================================
 (async function init() {
-  const manana = new Date();
-  manana.setDate(manana.getDate() + 1);
   $('#fecha').datepicker({
     format: 'yyyy-mm-dd',
     language: 'es',
     todayHighlight: true,
     autoclose: true,
-    startDate: new Date(), // desde hoy
-    daysOfWeekDisabled: [1], // 🚫 lunes bloqueados
+    startDate: new Date(),
+    daysOfWeekDisabled: [1],
   });
-  syncVisitors();
 
-  // Recuperar sesión desde cookie si existe
-  const cookieMatch = document.cookie.match(/(?:^|; )token=([^;]+)/);
-  if (cookieMatch) {
-    token = decodeURIComponent(cookieMatch[1]);
-    const m = token.match(/^mock-token-(\d+)$/);
-    if (m) {
-      try {
-        const users = await fetchUsers();
-        const u = users.find(x => x.id === Number(m[1]));
-        if (u) {
-          currentUser = u;
-          userBadge.classList.remove('d-none');
-          userBadge.textContent = currentUser.name;
-          btnLogout.classList.remove('d-none');
-        }
-      } catch (err) {
-        // ignorar
-      }
-    }
-  } else {
-    const next = location.pathname + location.search;
-    window.location.href = `/login.html?next=${encodeURIComponent(next)}`;
-    return;
-  }
+  generarVisitantes();
+  cantidadInput.addEventListener('change', generarVisitantes);
+
+  // Simular sesión
+  currentUser = { id: 1, name: "Nico" };
 })();
