@@ -1,5 +1,11 @@
 const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000/api' : '/api';
 
+// =====================================================
+// ⚙️ Configuración de simulación de pago
+// =====================================================
+const USE_MP_MOCK = true;              // dejamos mock activado
+const MP_PAYMENT_APPROVED = true;      // ✅ true = aprobado | ❌ false = rechazado
+
 let currentUser = null;
 let token = null;
 
@@ -47,6 +53,21 @@ const generarVisitantes = () => {
 };
 
 // =====================================================
+// 💳 Simulación de pago Mercado Pago
+// =====================================================
+async function createMpPreference(payload) {
+  if (USE_MP_MOCK) {
+    // Simulación: devolvemos una URL de checkout y un id de pago
+    return {
+      ok: true,
+      checkoutUrl: 'https://www.mercadopago.com/checkout/v1/redirect?pref_id=TEST-123',
+      paymentId: 'PAY-TEST-123'
+    };
+  }
+  // (en entorno real iría la llamada fetch al backend)
+}
+
+// =====================================================
 // 🧾 Envío del formulario
 // =====================================================
 const form = byId('buy-form');
@@ -76,56 +97,99 @@ form.addEventListener('submit', async (e) => {
   };
 
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    // =====================================================
+    // 💰 Simular flujo Mercado Pago
+    // =====================================================
+    if (payload.pago === 'mercado_pago' && USE_MP_MOCK) {
+      const pref = await createMpPreference(payload);
 
-    const res = await fetch(`${API_BASE}/tickets`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    });
+      // abrir ventana simulando checkout
+      window.open(pref.checkoutUrl, '_blank');
 
-    if (!res.ok) {
-      let msg = 'Error en la compra';
-      try {
-        const err = await res.json();
-        if (err.message) msg = err.message;
-      } catch {}
-      throw new Error(msg);
+      // mostrar modal "procesando pago..."
+      const modalPago = new bootstrap.Modal(byId('modalPago'));
+      const modalPagoTitle = byId('modal-pago-title');
+      const modalPagoBody = byId('modal-pago-body');
+      const modalPagoBtn = byId('modal-pago-btn');
+
+      modalPagoTitle.textContent = 'Procesando pago...';
+      modalPagoBody.innerHTML = `
+        <div class="d-flex justify-content-center align-items-center my-3">
+          <div class="spinner-border text-info me-2" role="status"></div>
+          <span>Validando transacción con Mercado Pago...</span>
+        </div>`;
+      modalPagoBtn.classList.add('d-none');
+      modalPago.show();
+
+      setTimeout(() => {
+        if (MP_PAYMENT_APPROVED) {
+          modalPagoTitle.textContent = '✅ Pago aprobado';
+          modalPagoBody.innerHTML = `
+            <p class="text-success">Tu pago fue procesado exitosamente mediante Mercado Pago.</p>`;
+          modalPagoBtn.textContent = 'Ver ticket';
+          modalPagoBtn.classList.remove('d-none');
+          modalPagoBtn.onclick = async () => {
+            modalPago.hide();
+            await mostrarTicket(payload, visitantes);
+          };
+        } else {
+          modalPagoTitle.textContent = '❌ Pago rechazado';
+          modalPagoBody.innerHTML = `
+            <p class="text-danger">El pago fue rechazado por Mercado Pago. Por favor, intenta nuevamente.</p>`;
+          modalPagoBtn.textContent = 'Cerrar';
+          modalPagoBtn.classList.remove('d-none');
+          modalPagoBtn.onclick = () => modalPago.hide();
+        }
+      }, 2000);
+
+      return;
     }
 
-    const body = await res.json();
-    const visitantesHTML = body.visitantes
-      .map((v, i) => `<li>Visitante ${i + 1}: ${v.edad} años — ${v.tipoPase.toUpperCase()}</li>`)
-      .join('');
-
-    const modalBodyHTML = `
-      <p><strong>${body.cantidad}</strong> entrada${body.cantidad > 1 ? 's' : ''} para el <strong>${new Date(body.fechaVisita).toLocaleDateString()}</strong></p>
-      <ul class="list-unstyled">${visitantesHTML}</ul>
-      ${body.qrCode ? `<img src="${body.qrCode}" alt="QR" class="img-fluid my-3" style="max-width:200px;">` : ''}
-    `;
-
-    const modalTitle = byId('ticket-modal-title');
-    const modalBody = byId('ticket-modal-body');
-
-    if (payload.pago === 'mercado_pago') {
-      modalTitle.textContent = '✅ Pago aprobado';
-      modalBody.innerHTML = modalBodyHTML + `
-        <p class="text-muted">Tu pago fue procesado exitosamente mediante Mercado Pago.</p>
-      `;
-    } else if (payload.pago === 'efectivo') {
-      modalTitle.textContent = '✅ Compra registrada correctamente';
-      modalBody.innerHTML = modalBodyHTML + `
-        <p class="mt-2 text-muted">💵 Recordá que debés abonar en la <strong>boletería del parque</strong> antes de tu visita.</p>
-      `;
-    }
-
-    const modal = new bootstrap.Modal(document.getElementById('ticketModal'));
-    modal.show();
+    // Si el pago es efectivo
+    await mostrarTicket(payload, visitantes);
   } catch (err) {
     showAlert(err.message || String(err));
   }
 });
+
+// =====================================================
+// 🧾 Mostrar ticket
+// =====================================================
+async function mostrarTicket(payload, visitantes) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  // Simulación: devolvemos datos del ticket
+  const body = {
+    cantidad: payload.cantidad,
+    fechaVisita: payload.fechaVisita,
+    visitantes,
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TICKET-TEST'
+  };
+
+  const visitantesHTML = body.visitantes
+    .map((v, i) => `<li>Visitante ${i + 1}: ${v.edad} años — ${v.tipoPase.toUpperCase()}</li>`)
+    .join('');
+
+  const modalTitle = byId('ticket-modal-title');
+  const modalBody = byId('ticket-modal-body');
+  const modalBodyHTML = `
+    <p><strong>${body.cantidad}</strong> entrada${body.cantidad > 1 ? 's' : ''} para el <strong>${new Date(body.fechaVisita).toLocaleDateString()}</strong></p>
+    <ul class="list-unstyled">${visitantesHTML}</ul>
+    ${body.qrCode ? `<img src="${body.qrCode}" alt="QR" class="img-fluid my-3" style="max-width:200px;">` : ''}
+  `;
+
+  if (payload.pago === 'mercado_pago') {
+    modalTitle.textContent = '🎟️ Ticket confirmado';
+    modalBody.innerHTML = modalBodyHTML + `<p class="text-muted">Pago confirmado mediante Mercado Pago.</p>`;
+  } else if (payload.pago === 'efectivo') {
+    modalTitle.textContent = '💵 Compra registrada';
+    modalBody.innerHTML = modalBodyHTML + `<p class="text-muted">Recordá abonar en la boletería antes de tu visita.</p>`;
+  }
+
+  const modal = new bootstrap.Modal(byId('ticketModal'));
+  modal.show();
+}
 
 // =====================================================
 // 🚀 Inicialización

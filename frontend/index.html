@@ -64,7 +64,6 @@
     </div>
   </main>
 
-  <!-- Modal -->
   <div class="modal fade" id="ticketModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-success">
@@ -75,6 +74,27 @@
         <div class="modal-body text-center" id="ticket-modal-body"></div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-success" data-bs-dismiss="modal">Volver</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Simulación de pago Mercado Pago -->
+  <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-info">
+        <div class="modal-header bg-info text-white">
+          <h5 id="modal-pago-title" class="modal-title">Procesando pago...</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center" id="modal-pago-body">
+          <div class="d-flex justify-content-center align-items-center my-3">
+            <div class="spinner-border text-info me-2" role="status"></div>
+            <span>Validando transacción con Mercado Pago...</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="modal-pago-btn" class="btn btn-primary d-none">Aceptar</button>
         </div>
       </div>
     </div>
