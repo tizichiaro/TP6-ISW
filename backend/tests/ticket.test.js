@@ -7,11 +7,7 @@ const DATA_FILE = path.resolve('./data/tickets.json');
 let app;
 let token;
 
-// 🧹 Limpia entorno antes de cada test
 beforeEach(async () => {
-  // Reset archivo persistente
-  if (fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
-
   // Limpia módulos en caché (reinicia backend)
   jest.resetModules();
 
@@ -26,8 +22,6 @@ beforeEach(async () => {
   expect(authRes.statusCode).toBe(200);
   token = authRes.body.token;
 });
-
-// 📅 Genera una fecha válida (evita martes y miércoles)
 const obtenerFechaAbierta = (diasDesdeHoy = 1) => {
   const fecha = new Date();
   fecha.setDate(fecha.getDate() + diasDesdeHoy);
@@ -36,7 +30,6 @@ const obtenerFechaAbierta = (diasDesdeHoy = 1) => {
   }
   return fecha.toISOString();
 };
-
 describe('Ticket API (Compra de entradas)', () => {
 
   // ================================
@@ -237,6 +230,25 @@ describe('Ticket API (Compra de entradas)', () => {
       const res = await request(app).post('/api/tickets').send(payload);
       expect(res.statusCode).toBe(401);
     });
+    
+    test('Falla si la fecha supera los 3 meses desde hoy', async () => {
+      const fechaFutura = new Date();
+      fechaFutura.setMonth(fechaFutura.getMonth() + 3);
+
+      const res = await request(app)
+        .post('/api/tickets')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          fechaVisita: fechaFutura.toISOString(),
+          cantidad: 1,
+          pago: 'efectivo',
+          userId: 1,
+          visitantes: [{ edad: 20, tipoPase: 'regular' }]
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/3 meses/i);
+    });
   });
 
   // ================================
@@ -331,24 +343,6 @@ describe('Ticket API (Compra de entradas)', () => {
 
       expect(res.statusCode).toBe(201);
       expect(res.body.emailSent).toBeDefined();
-    });
-    test('Falla si la fecha supera los 2 meses desde hoy', async () => {
-      const fechaFutura = new Date();
-      fechaFutura.setMonth(fechaFutura.getMonth() + 3);
-
-      const res = await request(app)
-        .post('/api/tickets')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          fechaVisita: fechaFutura.toISOString(),
-          cantidad: 1,
-          pago: 'efectivo',
-          userId: 1,
-          visitantes: [{ edad: 20, tipoPase: 'regular' }]
-        });
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body.message).toMatch(/2 meses/i);
     });
   });
 });

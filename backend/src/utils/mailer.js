@@ -1,58 +1,28 @@
 import nodemailer from 'nodemailer';
 
-// 🧩 Utilidad para enviar emails. Si no hay configuración SMTP, usa un "mock"
-// que imprime el contenido del correo en consola en lugar de enviarlo.
+let transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // boolean, no string
+  auth: {
+    user: "icsgr6@gmail.com",
+    pass: "kpqtfwwfdwrzbyyz",
+  },
+});
 
-// Determina si hay configuración SMTP real
-const hasSmtpConfig = Boolean(
-  process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
-);
-
-let transporter;
-
-if (hasSmtpConfig) {
-  // 🔐 Config real (si usás SMTP)
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-} else {
-  // 🧪 Transportador "mock" → imprime en consola
-  transporter = {
-    sendMail: async (mail) => {
-      console.log('=== Mock email (no SMTP configurado) ===');
-      console.log('From:', mail.from);
-      console.log('To:', mail.to);
-      console.log('Subject:', mail.subject);
-      console.log('Text:\n', mail.text);
-      if (mail.html) console.log('HTML:\n', mail.html);
-      console.log('========================================');
-      return Promise.resolve({ accepted: [mail.to] });
-    },
-  };
-}
-
-// 📬 Envío de confirmación de ticket (mock incluido)
+// 📬 Envío de confirmación de ticket
 export async function sendTicketConfirmation(ticket) {
-  // Remitente y destinatario fijos para pruebas
   const from = 'tizichiaro@gmail.com';
   const toEmail = 'tizichiaro1@gmail.com';
   const subject = `Confirmación de compra - Ticket #${ticket.id}`;
 
-  // ✅ Convertimos los visitantes a texto legible
-  let visitantesTexto = 'Sin visitantes';
+  // 🧾 Visitantes
   let visitantesHTML = '<li>Sin visitantes</li>';
-
+  let visitantesTexto = 'Sin visitantes';
   if (Array.isArray(ticket.visitantes) && ticket.visitantes.length > 0) {
     visitantesTexto = ticket.visitantes
       .map((v, i) => `Visitante ${i + 1}: Edad ${v.edad}, Pase ${v.tipoPase}`)
       .join('\n');
-
     visitantesHTML = ticket.visitantes
       .map(
         (v, i) =>
@@ -60,19 +30,37 @@ export async function sendTicketConfirmation(ticket) {
       )
       .join('');
   }
+  // Preparar QR y attachments correctamente usando ticket.qrCode
+  const qrCode = ticket?.qrCode || null;
+  const attachments = [];
+  let qrImgTag = '<p>No hay QR disponible.</p>';
 
-  const textLines = [
-    `Gracias por su compra.`,
-    `\nDetalle de la reserva:`,
-    `Fecha de visita: ${ticket.fechaVisita}`,
-    `Cantidad: ${ticket.cantidad}`,
-    `Forma de pago: ${ticket.pago}`,
-    `Visitantes:\n${visitantesTexto}`,
-    `\n¡Esperamos verlo pronto!`,
-  ];
+  if (qrCode) {
+    // Base64 data URL (e.g. 'data:image/png;base64,...')
+    if (typeof qrCode === 'string' && qrCode.startsWith('data:image')) {
+      const base64 = qrCode.split('base64,')[1] || qrCode;
+      attachments.push({
+        filename: 'qrcode.png',
+        content: base64,
+        encoding: 'base64',
+        cid: 'qrcode@ticket',
+      });
+      qrImgTag = `<img src="cid:qrcode@ticket" alt="QR" style="max-width:200px;"/>`;
+    } else if (typeof qrCode === 'string' && /^https?:\/\//i.test(qrCode)) {
+      // Remote URL: reference directly in the HTML (no attachment)
+      qrImgTag = `<img src="${qrCode}" alt="QR" style="max-width:200px;"/>`;
+    } else {
+      // Assume local file path: attach and reference via CID
+      attachments.push({
+        filename: 'qrcode.png',
+        path: qrCode,
+        cid: 'qrcode@ticket',
+      });
+      qrImgTag = `<img src="cid:qrcode@ticket" alt="QR" style="max-width:200px;"/>`;
+    }
+  }
 
-  const text = textLines.join('\n');
-
+  // 🧱 Cuerpo HTML con imagen embebida (usa CID cuando se adjunta)
   const html = `
     <p>Gracias por su compra.</p>
     <h3>Detalle de la reserva</h3>
@@ -80,12 +68,12 @@ export async function sendTicketConfirmation(ticket) {
       <li><strong>ID</strong>: ${ticket.id}</li>
       <li><strong>Fecha de visita</strong>: ${ticket.fechaVisita}</li>
       <li><strong>Cantidad</strong>: ${ticket.cantidad}</li>
-      <li><strong>Tipo de pase</strong>: ${ticket.tipoPase || 'N/A'}</li>
       <li><strong>Forma de pago</strong>: ${ticket.pago}</li>
       <li><strong>User ID</strong>: ${ticket.userId}</li>
-      <li><strong>Visitantes</strong>:</li>
-      <ul>${visitantesHTML}</ul>
     </ul>
+    <h4>Visitantes</h4>
+    <ul>${visitantesHTML}</ul>
+    ${qrImgTag}
     <p>¡Esperamos verlo pronto!</p>
   `;
 
@@ -93,11 +81,17 @@ export async function sendTicketConfirmation(ticket) {
     from,
     to: toEmail,
     subject,
-    text,
+    text: `Gracias por su compra.\n\nDetalle de la reserva:\n${visitantesTexto}\n\n¡Esperamos verlo pronto!`,
     html,
+    attachments,
   };
 
-  return transporter.sendMail(mailOptions);
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Email enviado: ", info.messageId);
+  } catch (error) {
+    console.error("❌ Error de envío de email:", error);
+  }
 }
 
 export default { sendTicketConfirmation };

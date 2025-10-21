@@ -3,9 +3,9 @@ const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000/api' :
 // ⚙️ Simulación de Mercado Pago
 const USE_MP_MOCK = true;              // true = simulación
 const MP_PAYMENT_APPROVED = false;      // true = aprobado | false = rechazado
-
-let currentUser = null;
-let token = null;
+let IS_LOGGED_IN = false; 
+let currentUser = IS_LOGGED_IN ? { id: 1, name: 'Nico' } : null;
+let token = IS_LOGGED_IN ? 'mock-token-1' : null;
 let modalInstance = null; // referencia global al modal bootstrap
 
 const byId = (id) => document.getElementById(id);
@@ -31,8 +31,6 @@ const generarVisitantes = () => {
   let cantidad = Number(cantidadInput.value) || 1;
 
   // 🔒 Limitar mínimo 1 y máximo 10
-  if (cantidad < 1) cantidad = 1;
-  if (cantidad > 10) cantidad = 10;
 
   for (let i = 0; i < cantidad; i++) {
     const div = document.createElement('div');
@@ -66,9 +64,17 @@ form.addEventListener('submit', async (e) => {
   const fechaInput = byId('fecha');
   const pagoSelect = byId('pago');
 
-  if (!currentUser) {
-    showAlert('Debe iniciar sesión para comprar entradas', 'warning');
-    return;
+  // 🚫 Si no hay sesión activa, simulamos token inválido
+  let simulatedUserId;
+  let simulatedToken;
+
+  if (IS_LOGGED_IN) {
+    simulatedUserId = currentUser.id;
+    simulatedToken = token;
+  } else {
+    // caso sin login → simulamos mismatch de token/usuario
+    simulatedUserId = 999;             // distinto al del token
+    simulatedToken = 'mock-token-1';     // token inválido
   }
 
   const visitantes = Array.from(document.querySelectorAll('#visitantes-list > div')).map(div => ({
@@ -81,12 +87,12 @@ form.addEventListener('submit', async (e) => {
     cantidad: visitantes.length,
     visitantes,
     pago: pagoSelect.value,
-    userId: currentUser.id
+    userId: simulatedUserId
   };
 
   try {
     const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (simulatedToken) headers['Authorization'] = `Bearer ${simulatedToken}`;
 
     const res = await fetch(`${API_BASE}/tickets`, {
       method: 'POST',
@@ -104,16 +110,13 @@ form.addEventListener('submit', async (e) => {
     }
 
     const body = await res.json();
-
-    // =====================================================
-    // 💳 Si el pago es Mercado Pago → Simulamos checkout
-    // =====================================================
+    // 💳 Pago con Mercado Pago (mock)
     if (payload.pago === 'mercado_pago' && USE_MP_MOCK) {
       await simularPagoMercadoPago(body);
       return;
     }
 
-    // 💵 Pago en efectivo (flujo normal)
+    // 💵 Pago efectivo
     mostrarPopupResultado(body, true, true);
 
   } catch (err) {
@@ -184,9 +187,6 @@ function mostrarPopupResultado(ticket, aprobado = true, esEfectivo = false) {
     modalBody.innerHTML = `
       <p class="text-danger">Tu pago fue rechazado. No se generaron entradas.</p>
       <p class="text-muted">Podés intentar nuevamente o usar otro medio de pago.</p>
-      <div class="text-end">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
     `;
   } else {
     const visitantesHTML = ticket.visitantes
@@ -237,13 +237,11 @@ function getCookie(name) {
     language: 'es',
     todayHighlight: true,
     autoclose: true,
-    startDate: new Date(),
-    daysOfWeekDisabled: [1],
+    /* startDate: new Date(),// no permitir fechas pasadas */
+    /* daysOfWeekDisabled: [1], */
   });
 
   generarVisitantes();
   cantidadInput.addEventListener('change', generarVisitantes);
 
-  // Simular sesión
-  currentUser = { id: 1, name: "Nico" };
 })();

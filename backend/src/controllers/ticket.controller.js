@@ -8,18 +8,24 @@ const LIMITE_ENTRADAS_POR_DIA = 15;
 const parqueAbierto = (fecha) => {
   const d = new Date(fecha);
   const dia = d.getUTCDay(); // 0=Dom, 1=Lun, 2=Mar, ...
-  return dia !== 1; // ✅ cierra sólo lunes
+  const diaMes = d.getUTCDate();
+  const mes = d.getUTCMonth() + 1; // Enero = 1
+
+  // Cerrado lunes, Navidad (25/12) y Año Nuevo (1/1)
+  const esLunes = dia === 1;
+  const esNavidad = diaMes === 25 && mes === 12;
+  const esAnioNuevo = diaMes === 1 && mes === 1;
+
+  return !(esLunes || esNavidad || esAnioNuevo);
 };
 
-// 🧮 Lista de tickets en memoria
-let tickets = [];
 let nextId = 1;
 
 // 🎟️ Crear ticket
 export const crearTicket = async (req, res) => {
   try {
     const { fechaVisita, cantidad, visitantes, pago, userId } = req.body;
-
+    console.log('Crear ticket:', { fechaVisita, cantidad, visitantes, pago, userId });
     // 🔒 Validar autenticación
     const tokenUserId = req.authUserId;
     if (tokenUserId !== userId) {
@@ -34,12 +40,12 @@ export const crearTicket = async (req, res) => {
 
     const fecha = new Date(fechaVisita);
     const hoy = new Date();
-const fechaUTC = Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate());
-const hoyUTC = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
+    const fechaUTC = Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate());
+    const hoyUTC = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
 
-if (isNaN(fecha) || fechaUTC < hoyUTC) {
-  return res.status(400).json({ message: 'La fecha de visita no puede ser pasada' });
-}
+    if (isNaN(fecha) || fechaUTC < hoyUTC) {
+      return res.status(400).json({ message: 'La fecha de visita no puede ser pasada' });
+    }
     if (!parqueAbierto(fecha))
       return res.status(400).json({ message: 'El parque está cerrado ese día' });
     if (cantidad <= 0 || cantidad > 10)
@@ -49,13 +55,13 @@ if (isNaN(fecha) || fechaUTC < hoyUTC) {
 
     const hoySoloDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     const limiteMax = new Date(hoySoloDia);
-    limiteMax.setMonth(limiteMax.getMonth() + 2);
+    limiteMax.setMonth(limiteMax.getMonth() + 3);
     if (fecha > limiteMax) {
       const y = limiteMax.getFullYear();
-      const m = String(limiteMax.getMonth() + 1).padStart(2, '0');
+      const m = String(limiteMax.getMonth() + 2).padStart(2, '0');
       const d = String(limiteMax.getDate()).padStart(2, '0');
       return res.status(400).json({
-        message: `Solo se pueden comprar entradas hasta ${y}-${m}-${d} (máximo 2 meses desde hoy).`
+        message: `Solo se pueden comprar entradas hasta ${y}-${m}-${d} (máximo 3 meses desde hoy).`
       });
     }
 
@@ -73,27 +79,6 @@ if (isNaN(fecha) || fechaUTC < hoyUTC) {
     // 🧮 CONTROL DE CAPACIDAD DIARIA
     // ======================
     const fechaClave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
-    const entradasVendidasEseDia = tickets
-      .filter(t => {
-        const f = new Date(t.fechaVisita);
-        const claveTicket = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
-        return claveTicket === fechaClave;
-      })
-      .reduce((sum, t) => sum + t.cantidad, 0);
-
-    if (entradasVendidasEseDia >= LIMITE_ENTRADAS_POR_DIA) {
-      return res.status(400).json({
-        message: `El cupo para el ${fechaClave} ya está completo (${LIMITE_ENTRADAS_POR_DIA} entradas).`,
-      });
-    }
-
-    if (entradasVendidasEseDia + cantidad > LIMITE_ENTRADAS_POR_DIA) {
-      const disponibles = LIMITE_ENTRADAS_POR_DIA - entradasVendidasEseDia;
-      return res.status(400).json({
-        message: `Solo quedan ${disponibles} entradas disponibles para el ${fechaClave}.`,
-      });
-    }
-
     // ======================
     // 🎟️ CREAR Y GUARDAR TICKET EN MEMORIA
     // ======================
@@ -112,15 +97,6 @@ if (isNaN(fecha) || fechaUTC < hoyUTC) {
     const user = getUserById(userId);
     ticket.emailSent = false;
 
-    if (user && user.email) {
-      try {
-        await sendTicketConfirmation(ticket, user.email);
-        ticket.emailSent = true;
-      } catch (err) {
-        console.error('❌ Error simulando envío de mail:', err.message || err);
-      }
-    }
-
     const qrData = JSON.stringify({
       id: ticket.id,
       userId: ticket.userId,
@@ -129,7 +105,15 @@ if (isNaN(fecha) || fechaUTC < hoyUTC) {
     });
     ticket.qrCode = await QRCode.toDataURL(qrData);
 
-    tickets.push(ticket);
+      if (user && user.email) {
+      try {
+        /* await sendTicketConfirmation(ticket, user.email); */
+        ticket.emailSent = true;
+      } catch (err) {
+        console.error('❌ Error simulando envío de mail:', err.message || err);
+      }
+    }
+
 
     res.status(201).json(ticket);
 
@@ -140,6 +124,3 @@ if (isNaN(fecha) || fechaUTC < hoyUTC) {
 };
 
 // 📋 Obtener todos los tickets (solo en memoria)
-export const obtenerTickets = (_req, res) => {
-  res.json(tickets);
-};
