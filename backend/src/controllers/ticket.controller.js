@@ -24,8 +24,8 @@ let nextId = 1;
 // 🎟️ Crear ticket
 export const crearTicket = async (req, res) => {
   try {
-    const { fechaVisita, cantidad, visitantes, pago, userId } = req.body;
-    console.log('Crear ticket:', { fechaVisita, cantidad, visitantes, pago, userId });
+    const { fechaVisita, cantidad, visitantes, pago, userId, userMail } = req.body;
+
     // 🔒 Validar autenticación
     const tokenUserId = req.authUserId;
     if (tokenUserId !== userId) {
@@ -89,6 +89,7 @@ export const crearTicket = async (req, res) => {
       visitantes,
       pago,
       userId,
+      userMail,
     };
 
     if (pago === 'mercado_pago')
@@ -107,7 +108,7 @@ export const crearTicket = async (req, res) => {
 
       if (user && user.email) {
       try {
-        /* await sendTicketConfirmation(ticket, user.email); */
+        await sendTicketConfirmation(ticket);
         ticket.emailSent = true;
       } catch (err) {
         console.error('❌ Error simulando envío de mail:', err.message || err);

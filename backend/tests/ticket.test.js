@@ -230,7 +230,7 @@ describe('Ticket API (Compra de entradas)', () => {
       const res = await request(app).post('/api/tickets').send(payload);
       expect(res.statusCode).toBe(401);
     });
-    
+
     test('Falla si la fecha supera los 3 meses desde hoy', async () => {
       const fechaFutura = new Date();
       fechaFutura.setMonth(fechaFutura.getMonth() + 3);

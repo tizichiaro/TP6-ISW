@@ -2,8 +2,8 @@ const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000/api' :
 
 // ⚙️ Simulación de Mercado Pago
 const USE_MP_MOCK = true;              // true = simulación
-const MP_PAYMENT_APPROVED = false;      // true = aprobado | false = rechazado
-let IS_LOGGED_IN = false; 
+const MP_PAYMENT_APPROVED = true;      // true = aprobado | false = rechazado
+let IS_LOGGED_IN = true;
 let currentUser = IS_LOGGED_IN ? { id: 1, name: 'Nico' } : null;
 let token = IS_LOGGED_IN ? 'mock-token-1' : null;
 let modalInstance = null; // referencia global al modal bootstrap
@@ -29,7 +29,10 @@ const cantidadInput = byId('cantidad');
 const generarVisitantes = () => {
   visitantesList.innerHTML = '';
   let cantidad = Number(cantidadInput.value) || 1;
-
+  if (cantidad > 10) {
+    showAlert('El máximo de visitantes permitido es 10.', 'warning');
+    cantidad = 0;
+  }
   // 🔒 Limitar mínimo 1 y máximo 10
 
   for (let i = 0; i < cantidad; i++) {
@@ -87,7 +90,8 @@ form.addEventListener('submit', async (e) => {
     cantidad: visitantes.length,
     visitantes,
     pago: pagoSelect.value,
-    userId: simulatedUserId
+    userId: simulatedUserId,
+    userMail: 'tizichiaro1@gmail.com'
   };
 
   try {
@@ -105,7 +109,7 @@ form.addEventListener('submit', async (e) => {
       try {
         const err = await res.json();
         if (err.message) msg = err.message;
-      } catch {}
+      } catch { }
       throw new Error(msg);
     }
 
@@ -194,7 +198,7 @@ function mostrarPopupResultado(ticket, aprobado = true, esEfectivo = false) {
       .join('');
 
     const modalBodyHTML = `
-      <p><strong>${ticket.cantidad}</strong> entrada${ticket.cantidad > 1 ? 's' : ''} para el <strong>${new Date(ticket.fechaVisita).toLocaleDateString()}</strong></p>
+      <p><strong>${ticket.cantidad}</strong> entrada${ticket.cantidad > 1 ? 's' : ''} para el <strong>${new Date(ticket.fechaVisita).toLocaleDateString('es-AR', { timeZone: 'UTC' })}</strong></p>
       <ul class="list-unstyled">${visitantesHTML}</ul>
       ${ticket.qrCode ? `<img src="${ticket.qrCode}" alt="QR" class="img-fluid my-3" style="max-width:200px;">` : ''}
     `;
@@ -203,8 +207,8 @@ function mostrarPopupResultado(ticket, aprobado = true, esEfectivo = false) {
     modalBody.innerHTML = modalBodyHTML + `
       <p class="text-muted">
         ${esEfectivo
-          ? '💵 Recordá abonar en la <strong>boletería del parque</strong> antes de tu visita.'
-          : 'Tu pago fue procesado exitosamente mediante Mercado Pago.'}
+        ? '💵 Recordá abonar en la <strong>boletería del parque</strong> antes de tu visita.'
+        : 'Tu pago fue procesado exitosamente mediante Mercado Pago.'}
       </p>
     `;
 

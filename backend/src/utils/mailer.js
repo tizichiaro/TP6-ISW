@@ -12,8 +12,9 @@ let transporter = nodemailer.createTransport({
 
 // 📬 Envío de confirmación de ticket
 export async function sendTicketConfirmation(ticket) {
+  console.log('📧 Enviando email de confirmación para ticket:', ticket);
   const from = 'tizichiaro@gmail.com';
-  const toEmail = 'tizichiaro1@gmail.com';
+  const toEmail = ticket.userMail;
   const subject = `Confirmación de compra - Ticket #${ticket.id}`;
 
   // 🧾 Visitantes
@@ -66,7 +67,7 @@ export async function sendTicketConfirmation(ticket) {
     <h3>Detalle de la reserva</h3>
     <ul>
       <li><strong>ID</strong>: ${ticket.id}</li>
-      <li><strong>Fecha de visita</strong>: ${ticket.fechaVisita}</li>
+      <li><strong>Fecha de visita</strong>: ${ticket.fechaVisita.split('T')[0]}</li>
       <li><strong>Cantidad</strong>: ${ticket.cantidad}</li>
       <li><strong>Forma de pago</strong>: ${ticket.pago}</li>
       <li><strong>User ID</strong>: ${ticket.userId}</li>
