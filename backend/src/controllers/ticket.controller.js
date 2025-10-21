@@ -7,10 +7,16 @@ import path from 'path';
 const DATA_FILE = path.resolve('./data/tickets.json');
 const LIMITE_ENTRADAS_POR_DIA = 15;
 
-// 🏞️ Parque cerrado martes y miércoles
-const parqueAbierto = (fecha) => {
+// 🏞️ Parque cerrado lunes
+/* const parqueAbierto = (fecha) => {
   const dia = new Date(fecha).getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie...
-  return dia !== 2 && dia !== 3;
+  return dia !== 1;
+}; */
+const parqueAbierto = (fecha) => {
+  const d = new Date(fecha);
+  // Usar UTC para que '2025-10-21' sea martes sin correrse a lunes en -03:00
+  const dia = d.getUTCDay(); // 0=Dom, 1=Lun, 2=Mar, ...
+  return dia !== 1; // ✅ cierra sólo lunes
 };
 
 // 📂 Cargar tickets existentes (si el archivo existe)
@@ -66,12 +72,24 @@ export const crearTicket = async (req, res) => {
     if (!['efectivo', 'mercado_pago'].includes(pago))
       return res.status(400).json({ message: 'Forma de pago inválida' });
 
+    const limiteMax = new Date(hoySoloDia);
+    limiteMax.setMonth(limiteMax.getMonth() + 2);
+    // (Opcional) Si querés que el límite sea exclusivo, usá ">= limiteMax" en vez de ">"
+    if (fechaSoloDia > limiteMax) {
+      const y = limiteMax.getFullYear();
+      const m = String(limiteMax.getMonth() + 1).padStart(2, '0');
+      const d = String(limiteMax.getDate()).padStart(2, '0');
+      return res.status(400).json({
+        message: `Solo se pueden comprar entradas hasta ${y}-${m}-${d} (máximo 2 meses desde hoy).`
+      });
+    }
+
     if (!Array.isArray(visitantes) || visitantes.length !== cantidad)
       return res.status(400).json({ message: 'Cantidad de visitantes no coincide con el número de entradas' });
 
     for (const [i, v] of visitantes.entries()) {
-      if (typeof v.edad !== 'number' || v.edad < 0)
-        return res.status(400).json({ message: `Edad inválida en visitante #${i + 1}` });
+      if (typeof v.edad !== 'number' || v.edad < 0 || v.edad > 120)
+        return res.status(400).json({ message: `Verifique las edades de los visitantes`});
       if (!['regular', 'vip'].includes(v.tipoPase))
         return res.status(400).json({ message: `Tipo de pase inválido en visitante #${i + 1}` });
     }
@@ -104,7 +122,6 @@ export const crearTicket = async (req, res) => {
         message: `Solo quedan ${disponibles} entradas disponibles para el ${fechaClave}.`,
       });
     }
-
     // ======================
     // 🎟️ CREAR Y GUARDAR TICKET
     // ======================

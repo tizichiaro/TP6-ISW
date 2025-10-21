@@ -22,8 +22,16 @@ const visitantesList = byId('visitantes-list');
 const cantidadInput = byId('cantidad');
 
 const generarVisitantes = () => {
+  
+  
+
   visitantesList.innerHTML = '';
   const cantidad = Number(cantidadInput.value) || 1;
+
+  if (cantidad > 10) {
+    alert('El máximo permitido es de 10 entradas por compra.');
+    return; // ⛔ corta la ejecución, no genera ningún visitante
+  }
 
   for (let i = 0; i < cantidad; i++) {
     const div = document.createElement('div');

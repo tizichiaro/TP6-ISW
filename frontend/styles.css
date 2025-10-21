@@ -21,3 +21,4 @@ body::before{
 	background-image: radial-gradient(circle at 10% 10%, rgba(127,183,126,0.08), transparent 10%), url('');
 	pointer-events: none;
 }
+

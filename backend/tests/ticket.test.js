@@ -64,28 +64,35 @@ describe('Ticket API (Compra de entradas)', () => {
       expect(res.body.message).toMatch(/pago/i);
     });
 
-    test('Falla si el parque está cerrado (martes o miércoles)', async () => {
-      const diaCerrado = new Date();
-      diaCerrado.setDate(diaCerrado.getDate() + ((2 - diaCerrado.getDay() + 7) % 7)); // martes
-      const payload = {
-        fechaVisita: diaCerrado.toISOString(),
-        cantidad: 2,
-        pago: 'efectivo',
-        userId: 1,
-        visitantes: [
-          { edad: 22, tipoPase: 'regular' },
-          { edad: 30, tipoPase: 'vip' }
-        ]
-      };
+    test('Falla si el parque está cerrado (lunes)', async () => {
+  const hoy = new Date();
+  const diaDeHoy = hoy.getDay(); // 0=Dom, 1=Lun, 2=Mar...
 
-      const res = await request(app)
-        .post('/api/tickets')
-        .set('Authorization', `Bearer ${token}`)
-        .send(payload);
+  // 🗓️ Calcular el próximo lunes (si hoy ya es lunes, usar el lunes siguiente)
+  // días hasta el próximo lunes: (1 - diaDeHoy + 7) % 7; si resulta 0, usar 7
+  const diasHastaLunes = (1 - diaDeHoy + 7) % 7 || 7;
+  const diaCerrado = new Date(hoy);
+  diaCerrado.setDate(hoy.getDate() + diasHastaLunes);
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body.message).toMatch(/cerrado/i);
-    });
+    const payload = {
+      fechaVisita: diaCerrado.toISOString(),
+      cantidad: 2,
+      pago: 'efectivo',
+      userId: 1,
+      visitantes: [
+        { edad: 22, tipoPase: 'regular' },
+        { edad: 30, tipoPase: 'vip' }
+      ]
+    };
+
+  const res = await request(app)
+    .post('/api/tickets')
+    .set('Authorization', `Bearer ${token}`)
+    .send(payload);
+
+  expect(res.statusCode).toBe(400);
+  expect(res.body.message).toMatch(/cerrado/i);
+});
 
     test('Falla si se intenta comprar más de 10 entradas', async () => {
       const payload = {
