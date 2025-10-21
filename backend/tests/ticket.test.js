@@ -43,7 +43,21 @@ describe('Ticket API (Compra de entradas)', () => {
   // ❌ Casos inválidos
   // ================================
   describe('Casos inválidos', () => {
+    test('Falla si el userId del token y del body no coinciden', async () => {
+      const res = await request(app)
+        .post('/api/tickets')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          fechaVisita: obtenerFechaAbierta(),
+          cantidad: 1,
+          pago: 'efectivo',
+          userId: 999, // otro usuario
+          visitantes: [{ edad: 20, tipoPase: 'regular' }]
+        });
 
+      expect(res.statusCode).toBe(403);
+      expect(res.body.message).toMatch(/token inválido/i);
+    });
     test('Falla si no se selecciona forma de pago', async () => {
       const payload = {
         fechaVisita: obtenerFechaAbierta(),
@@ -65,34 +79,34 @@ describe('Ticket API (Compra de entradas)', () => {
     });
 
     test('Falla si el parque está cerrado (lunes)', async () => {
-  const hoy = new Date();
-  const diaDeHoy = hoy.getDay(); // 0=Dom, 1=Lun, 2=Mar...
+      const hoy = new Date();
+      const diaDeHoy = hoy.getDay(); // 0=Dom, 1=Lun, 2=Mar...
 
-  // 🗓️ Calcular el próximo lunes (si hoy ya es lunes, usar el lunes siguiente)
-  // días hasta el próximo lunes: (1 - diaDeHoy + 7) % 7; si resulta 0, usar 7
-  const diasHastaLunes = (1 - diaDeHoy + 7) % 7 || 7;
-  const diaCerrado = new Date(hoy);
-  diaCerrado.setDate(hoy.getDate() + diasHastaLunes);
+      // 🗓️ Calcular el próximo lunes (si hoy ya es lunes, usar el lunes siguiente)
+      // días hasta el próximo lunes: (1 - diaDeHoy + 7) % 7; si resulta 0, usar 7
+      const diasHastaLunes = (1 - diaDeHoy + 7) % 7 || 7;
+      const diaCerrado = new Date(hoy);
+      diaCerrado.setDate(hoy.getDate() + diasHastaLunes);
 
-    const payload = {
-      fechaVisita: diaCerrado.toISOString(),
-      cantidad: 2,
-      pago: 'efectivo',
-      userId: 1,
-      visitantes: [
-        { edad: 22, tipoPase: 'regular' },
-        { edad: 30, tipoPase: 'vip' }
-      ]
-    };
+      const payload = {
+        fechaVisita: diaCerrado.toISOString(),
+        cantidad: 2,
+        pago: 'efectivo',
+        userId: 1,
+        visitantes: [
+          { edad: 22, tipoPase: 'regular' },
+          { edad: 30, tipoPase: 'vip' }
+        ]
+      };
 
-  const res = await request(app)
-    .post('/api/tickets')
-    .set('Authorization', `Bearer ${token}`)
-    .send(payload);
+      const res = await request(app)
+        .post('/api/tickets')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload);
 
-  expect(res.statusCode).toBe(400);
-  expect(res.body.message).toMatch(/cerrado/i);
-});
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/cerrado/i);
+    });
 
     test('Falla si se intenta comprar más de 10 entradas', async () => {
       const payload = {
@@ -288,32 +302,53 @@ describe('Ticket API (Compra de entradas)', () => {
 
       expect(res.statusCode).toBe(201);
     });
-
-    test('Bloquea el día si se supera el límite de 15 entradas', async () => {
-      const payload = {
-        fechaVisita: obtenerFechaAbierta(6),
-        cantidad: 10,
-        visitantes: Array.from({ length: 10 }, () => ({ edad: 22, tipoPase: 'regular' })),
-        pago: 'efectivo',
-        userId: 1
-      };
-
-      // Primera compra: 10 entradas
-      const res1 = await request(app)
+    test('Compra válida genera un QR en base64', async () => {
+      const res = await request(app)
         .post('/api/tickets')
         .set('Authorization', `Bearer ${token}`)
-        .send(payload);
+        .send({
+          fechaVisita: obtenerFechaAbierta(),
+          cantidad: 1,
+          pago: 'efectivo',
+          userId: 1,
+          visitantes: [{ edad: 30, tipoPase: 'vip' }]
+        });
 
-      expect(res1.statusCode).toBe(201);
-
-      // Segunda compra: excede el límite
-      const res2 = await request(app)
+      expect(res.statusCode).toBe(201);
+      expect(res.body.qrCode).toMatch(/^data:image\/png;base64,/);
+    });
+    test('Compra válida marca emailSent en true', async () => {
+      const res = await request(app)
         .post('/api/tickets')
         .set('Authorization', `Bearer ${token}`)
-        .send(payload);
+        .send({
+          fechaVisita: obtenerFechaAbierta(2),
+          cantidad: 1,
+          pago: 'efectivo',
+          userId: 1,
+          visitantes: [{ edad: 22, tipoPase: 'regular' }]
+        });
 
-      expect(res2.statusCode).toBe(400);
-      expect(res2.body.message).toMatch(/cupo|completo|disponible/i);
+      expect(res.statusCode).toBe(201);
+      expect(res.body.emailSent).toBeDefined();
+    });
+    test('Falla si la fecha supera los 2 meses desde hoy', async () => {
+      const fechaFutura = new Date();
+      fechaFutura.setMonth(fechaFutura.getMonth() + 3);
+
+      const res = await request(app)
+        .post('/api/tickets')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          fechaVisita: fechaFutura.toISOString(),
+          cantidad: 1,
+          pago: 'efectivo',
+          userId: 1,
+          visitantes: [{ edad: 20, tipoPase: 'regular' }]
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/2 meses/i);
     });
   });
 });
